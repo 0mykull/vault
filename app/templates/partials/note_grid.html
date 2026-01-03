@@ -1,0 +1,36 @@
+<div id="notes-grid" class="space-y-12">
+  {% if pinned_notes %}
+  <section class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm uppercase tracking-[0.4em] text-slate-400">Pinned</h3>
+      <span class="text-xs text-slate-500">{{ pinned_notes|length }} notes</span>
+    </div>
+    <div class="grid gap-5 md:grid-cols-2">
+      {% for note in pinned_notes %}
+        {% include 'partials/note_card.html' %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if other_notes %}
+  <section class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm uppercase tracking-[0.4em] text-slate-400">Library</h3>
+      <span class="text-xs text-slate-500">{{ other_notes|length }} notes</span>
+    </div>
+    <div class="grid gap-5 md:grid-cols-2">
+      {% for note in other_notes %}
+        {% include 'partials/note_card.html' %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if not pinned_notes and not other_notes %}
+  <div class="border border-dashed border-white/20 rounded-3xl p-12 text-center text-slate-400">
+    <p class="text-lg font-medium text-white mb-2">Vault is ready.</p>
+    <p>Start typing above to pin your first idea, checklist, or research snippet.</p>
+  </div>
+  {% endif %}
+</div>

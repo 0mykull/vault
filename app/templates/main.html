@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vault · Capture the sparks</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            vault: {
+              bg: '#050816',
+              panel: '#0f172a',
+            }
+          },
+          boxShadow: {
+            vault: '0 20px 120px rgba(15,23,42,0.45)'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[radial-gradient(circle_at_top,_rgba(56,189,248,.15),_transparent_45%),_radial-gradient(circle_at_20%_20%,_rgba(248,113,113,.2),_transparent_35%),_radial-gradient(circle_at_80%_0%,_rgba(129,140,248,.2),_transparent_25%)] bg-slate-950 text-slate-100 min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-10 space-y-10">
+    <header class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p class="text-xs tracking-widest text-slate-400 uppercase">Vault</p>
+        <h1 class="text-4xl md:text-5xl font-semibold">Ideas, archived and within reach.</h1>
+        <p class="text-slate-400 mt-3 max-w-2xl">
+          Vault keeps quick thoughts and deep research in the same calm space. Pin urgent memos, color-label research, and keep your second brain tidy without extra tabs.
+        </p>
+      </div>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-vault w-full md:w-auto">
+        <p class="text-xs uppercase tracking-widest text-slate-400 mb-1">Now</p>
+        <p class="text-lg font-semibold">{{ pinned_notes|length + other_notes|length }} notes</p>
+        <p class="text-slate-400 text-sm">Synced {{ (pinned_notes + other_notes)|length and 'moments ago' or 'once you add something' }}</p>
+      </div>
+    </header>
+
+    <section class="bg-slate-900/70 border border-white/10 rounded-3xl p-8 shadow-vault">
+      <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">New note</p>
+          <h2 class="text-2xl font-semibold">Capture what matters before it fades.</h2>
+        </div>
+        <span class="text-slate-500 text-sm" id="note-feedback"></span>
+      </div>
+      <form class="space-y-5" hx-post="/notes" hx-target="#notes-grid" hx-swap="outerHTML">
+        <input type="text" name="title" placeholder="Title" class="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60" autocomplete="off">
+        <textarea name="content" rows="4" placeholder="Write freely. Markdown-friendly." class="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60 resize-none" data-autogrow="true"></textarea>
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div class="flex flex-wrap gap-3 items-center">
+            <label class="text-xs uppercase text-slate-400 tracking-[0.3em]">Color</label>
+            <select name="color" class="bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/60">
+              {% for color in color_choices %}
+              <option value="{{ color }}">{{ color.title() }}</option>
+              {% endfor %}
+            </select>
+            <label class="inline-flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="pinned" class="rounded bg-slate-950 border-white/20 text-sky-400 focus:ring-offset-0 focus:ring-sky-500"> Pin to top
+            </label>
+          </div>
+          <button type="submit" class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-sky-500/30">
+            Save to Vault
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0-6-6m6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section id="notes-grid">
+      {% include 'partials/note_grid.html' %}
+    </section>
+  </div>
+
+  <script>
+    document.querySelectorAll('[data-autogrow="true"]').forEach((textarea) => {
+      const resize = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      };
+      textarea.addEventListener('input', resize);
+      resize();
+    });
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      if (!event.detail.target || event.detail.target.id !== 'notes-grid') {
+        return;
+      }
+      const feedback = document.getElementById('note-feedback');
+      if (event.detail.failed) {
+        feedback.textContent = event.detail.xhr.responseText || 'Could not save note';
+        feedback.classList.remove('text-slate-500');
+        feedback.classList.add('text-rose-400');
+      } else {
+        feedback.textContent = 'Note stored.';
+        feedback.classList.remove('text-rose-400');
+        feedback.classList.add('text-slate-500');
+      }
+    });
+  </script>
+</body>
+</html>

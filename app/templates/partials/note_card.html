@@ -1,0 +1,37 @@
+{% set shade = note.color if note.color else 'slate' %}
+<div id="note-card-{{ note.id }}" class="group relative rounded-3xl border border-{{ shade }}-400/40 bg-black/10 backdrop-blur px-6 py-5 shadow-[0_25px_80px_rgba(2,6,23,0.45)]">
+  <div class="flex items-center justify-between text-xs uppercase tracking-[0.4em] text-slate-500">
+    <span class="flex items-center gap-2">
+      <span class="block h-2 w-2 rounded-full bg-{{ shade }}-400"></span>
+      {{ shade.title() }}
+    </span>
+    {% if note.pinned %}
+    <span class="text-amber-300 flex items-center gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M15 2.25a3.75 3.75 0 0 1 3.75 3.75v2.785a4.5 4.5 0 0 1-1.197 3.042l-.553.603v5.02l1.22 1.22a.75.75 0 0 1-.53 1.28h-5.71a.75.75 0 0 1-.53-1.28l1.25-1.25v-5.02l-.553-.603A4.5 4.5 0 0 1 9.75 8.785V6a3.75 3.75 0 0 1 3.75-3.75z"/>
+      </svg>
+      Pinned
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="mt-4 space-y-3">
+    <h3 class="text-xl font-semibold text-white">{{ note.title or 'Untitled note' }}</h3>
+    <p class="text-slate-200 leading-relaxed break-words">{{ (note.content or 'Add a thought...') | e | replace('\n', '<br>') | safe }}</p>
+  </div>
+
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-slate-400">
+    <div class="flex flex-wrap gap-4 text-xs uppercase tracking-[0.3em]">
+      <button class="hover:text-sky-300 transition" hx-post="/notes/{{ note.id }}/toggle-pin" hx-target="#notes-grid" hx-swap="outerHTML">
+        {{ 'Unpin' if note.pinned else 'Pin' }}
+      </button>
+      <button class="hover:text-sky-300 transition" hx-get="/notes/{{ note.id }}/edit" hx-target="#note-card-{{ note.id }}" hx-swap="outerHTML">
+        Edit
+      </button>
+      <button class="hover:text-rose-300 transition" hx-post="/notes/{{ note.id }}/delete" hx-target="#notes-grid" hx-swap="outerHTML" hx-confirm="Delete this note?">
+        Delete
+      </button>
+    </div>
+    <span class="text-xs tracking-wider">Updated {{ note.updated_at.strftime('%b %d, %Y · %I:%M %p') }}</span>
+  </div>
+</div>

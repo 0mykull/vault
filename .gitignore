@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.pyc
+.env
+python3-virtualenv
+flask.sqlite
+.DS_Store
+vault.db
+todo.md
