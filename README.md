@@ -1,11 +1,9 @@
-# Vault Memory
-
-_Vault keeps capture and recall ruthlessly simple._ Two buttons—**New note** and **Recall**—plus a Gemini-powered Memory turn every text snippet into a searchable second brain.
+# Vault
+_Vault keeps remembering simple._ Two buttons—**New note** and **Recall**—that is a Gemini-powered Memory, turn every text snippet into a searchable second brain.
 
 ## Why it exists
 - **Plain text capture**: jot thoughts without markdown or block clutter; pin or color notes when needed.
 - **Smart recall**: Memory sends a lightweight tag index to Gemini 2.5 Flash Lite and returns concise answers; when Gemini is offline, a keyword engine delivers the closest matches.
-- **Calm UI**: inline loaders, sync status, and expandable cards keep the experience predictable across desktop and mobile.
 
 ## Run locally
 ```bash
@@ -56,5 +54,3 @@ Memory still works without Gemini (it falls back to keyword recall), but you’l
 - Run tests via `./run-tests.sh` (uses in-memory SQLite)
 - Want to reset locally? stop Flask, `rm vault.db`, restart
 - Need fresh tags? `flask shell -c "from app import Note, memory_engine; [memory_engine.ensure_tags(n) for n in Note.select()]"`
-
-That’s the whole playbook. Extend it with search, attachments, or more AI experiments—the core stays intentionally lean.
