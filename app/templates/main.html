@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vault · Capture the sparks</title>
+  <title>Vault · Your Second Brain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <script>
@@ -24,93 +24,106 @@
     }
   </script>
 </head>
-<body class="bg-[radial-gradient(circle_at_top,_rgba(56,189,248,.15),_transparent_45%),_radial-gradient(circle_at_20%_20%,_rgba(248,113,113,.2),_transparent_35%),_radial-gradient(circle_at_80%_0%,_rgba(129,140,248,.2),_transparent_25%)] bg-slate-950 text-slate-100 min-h-screen">
-  <div class="max-w-6xl mx-auto px-4 py-10 space-y-10">
-    <header class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p class="text-xs tracking-widest text-slate-400 uppercase">Vault</p>
-        <h1 class="text-4xl md:text-5xl font-semibold">Ideas, archived and within reach.</h1>
-        <p class="text-slate-400 mt-3 max-w-2xl">
-          Vault keeps quick thoughts and deep research in the same calm space. Pin urgent memos, color-label research, and keep your second brain tidy without extra tabs.
-        </p>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-10 space-y-8">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl" aria-hidden="true">🔐</span>
+        <div>
+          <h1 class="text-3xl font-semibold">Vault</h1>
+        </div>
       </div>
-      <div class="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-vault w-full md:w-auto">
-        <p class="text-xs uppercase tracking-widest text-slate-400 mb-1">Now</p>
-        <p class="text-lg font-semibold">{{ pinned_notes|length + other_notes|length }} notes</p>
-        <p class="text-slate-400 text-sm">Synced {{ (pinned_notes + other_notes)|length and 'moments ago' or 'once you add something' }}</p>
+      <div class="flex items-center gap-4">
+        <div id="sync-indicator" class="inline-flex items-center gap-2 text-xs text-slate-400">
+          <svg id="sync-spin" class="w-4 h-4 text-slate-300 animate-spin hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="9" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="42"/>
+          </svg>
+          <svg id="sync-check" class="w-4 h-4 text-emerald-400 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
+          </svg>
+          <span id="sync-label">Idle</span>
+        </div>
+        <div class="relative" id="settings-wrapper">
+          <button id="settings-toggle" type="button" class="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.3em] text-slate-300 hover:text-white">Settings</button>
+          <div id="settings-panel" class="hidden absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-slate-900/95 backdrop-blur shadow-lg text-sm text-slate-200">
+            <div class="border-b border-white/5 px-4 py-3">
+              <p class="font-semibold text-slate-100 text-xs uppercase tracking-[0.3em]">Help</p>
+              <p class="mt-2 text-xs leading-relaxed text-slate-400">Use <strong>New note</strong> to capture, <strong>Recall</strong> to ask Memory. Click any card to expand, pin urgent notes, and watch the sync state up top.</p>
+            </div>
+            <button class="w-full text-left px-4 py-3 text-rose-300 hover:bg-white/5 flex items-center justify-between text-xs uppercase tracking-[0.3em]" hx-post="/notes/clear" hx-target="#notes-grid" hx-swap="outerHTML">
+              Clear notes
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6m0 12L6 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
-    <section class="bg-gradient-to-br from-indigo-950/70 to-slate-900/80 border border-white/10 rounded-3xl p-6 shadow-vault">
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Memory</p>
-          <h2 class="text-2xl font-semibold">Ask your second brain.</h2>
-          <p class="text-slate-400 text-sm max-w-2xl">Ping Gemini-powered recall to find what you logged last week, surface grocery lists, or summarize scattered notes.</p>
-        </div>
-        <button id="memory-toggle" type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 py-3 text-sm font-semibold text-white/90 bg-white/5 hover:bg-white/10 transition" aria-expanded="false">
-          <span class="memory-toggle-label">Open Memory</span>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 memory-icon-open">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 memory-icon-close hidden">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
-          </svg>
-        </button>
-      </div>
-      <div id="memory-panel" class="mt-6 hidden">
-        <form class="space-y-4" hx-post="/memory/query" hx-target="#memory-response" hx-swap="innerHTML" hx-indicator="#memory-indicator">
-          <textarea id="memory-input" name="question" rows="3" placeholder="e.g. What was on my grocery list last week?" class="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 resize-none" data-autogrow="true"></textarea>
-          <div class="flex flex-wrap gap-3">
-            <button type="submit" class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 px-5 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-500/30">
-              Ask Memory
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25h13.5m0 0L15 6m1.5 2.25L15 10.5m6 5.25H7.5m0 0L9 18m-1.5-2.25L9 13.5" />
-              </svg>
-            </button>
-            <button type="button" id="memory-clear" class="px-4 py-3 text-sm font-semibold text-slate-300 border border-white/10 rounded-2xl hover:bg-white/5">Clear</button>
-          </div>
-        </form>
-        <div id="memory-indicator" class="htmx-indicator text-xs text-slate-300 mt-3" style="display: none;">Reaching into your vault...</div>
-        <div id="memory-response" class="mt-4 bg-slate-950/60 border border-white/10 rounded-2xl p-4 text-sm text-slate-100 whitespace-pre-wrap">
-          {% with memory=memory_initial %}
-            {% include 'partials/memory_response.html' %}
-          {% endwith %}
-        </div>
-      </div>
-    </section>
+    <div class="flex flex-wrap justify-center gap-4">
+      <button id="new-toggle" type="button" class="button-pill button-large" aria-expanded="false">New note</button>
+      <button id="recall-toggle" type="button" class="button-pill button-large" aria-expanded="false">Recall</button>
+    </div>
 
-    <section class="bg-slate-900/70 border border-white/10 rounded-3xl p-8 shadow-vault">
-      <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
-        <div>
-          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">New note</p>
-          <h2 class="text-2xl font-semibold">Capture what matters before it fades.</h2>
-        </div>
-        <span class="text-slate-500 text-sm" id="note-feedback"></span>
-      </div>
-      <form class="space-y-5" hx-post="/notes" hx-target="#notes-grid" hx-swap="outerHTML">
-        <input type="text" name="title" placeholder="Title" class="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60" autocomplete="off">
-        <textarea name="content" rows="4" placeholder="Write freely. Markdown-friendly." class="w-full bg-slate-950/60 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60 resize-none" data-autogrow="true"></textarea>
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div class="flex flex-wrap gap-3 items-center">
-            <label class="text-xs uppercase text-slate-400 tracking-[0.3em]">Color</label>
-            <select name="color" class="bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/60">
+    <section id="new-panel" class="hidden rounded-3xl border border-white/5 bg-slate-900/60 p-5 space-y-4 max-w-2xl mx-auto w-full">
+      <form id="note-form" class="space-y-4" hx-post="/notes" hx-target="#notes-grid" hx-swap="outerHTML" hx-indicator="#note-loading">
+        <input type="text" name="title" placeholder="Title" class="w-full rounded-2xl bg-slate-950/70 border border-white/10 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-slate-400/40" autocomplete="off">
+        <textarea name="content" rows="3" placeholder="Description" class="w-full rounded-2xl bg-slate-950/70 border border-white/10 px-4 py-4 text-base focus:outline-none focus:ring-2 focus:ring-slate-400/40 resize-y" data-autogrow="true"></textarea>
+        <div class="flex flex-wrap gap-4 items-center text-sm text-slate-300">
+          <label class="flex items-center gap-2">Color
+            <select name="color" class="rounded-xl bg-slate-950/70 border border-white/10 px-3 py-2">
               {% for color in color_choices %}
               <option value="{{ color }}">{{ color.title() }}</option>
               {% endfor %}
             </select>
-            <label class="inline-flex items-center gap-2 text-sm text-slate-300">
-              <input type="checkbox" name="pinned" class="rounded bg-slate-950 border-white/20 text-sky-400 focus:ring-offset-0 focus:ring-sky-500"> Pin to top
-            </label>
-          </div>
-          <button type="submit" class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-sky-500/30">
-            Save to Vault
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0-6-6m6 6-6 6" />
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="pinned" class="rounded bg-slate-900 border-white/30 text-slate-200 focus:ring-0"> Pin
+          </label>
+          <button type="submit" class="ml-auto inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+            Save
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7" />
             </svg>
           </button>
         </div>
+        <div id="note-loading" class="htmx-indicator flex items-center gap-2 text-xs text-slate-400" style="display:none;">
+          <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="9" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="42"/>
+          </svg>
+          <span>Saving…</span>
+        </div>
       </form>
+    </section>
+
+    <section id="recall-panel" class="hidden rounded-3xl border border-white/5 bg-slate-900/60 p-5 space-y-4 max-w-2xl mx-auto w-full">
+      <form class="space-y-3" hx-post="/memory/query" hx-target="#memory-response" hx-swap="innerHTML" hx-indicator="#memory-indicator">
+        <textarea id="memory-input" name="question" rows="2" placeholder="What's on my grocery list?" class="w-full rounded-2xl bg-slate-950/70 border border-white/10 px-4 py-4 text-base focus:outline-none focus:ring-2 focus:ring-slate-400/40 resize-y" data-autogrow="true"></textarea>
+        <div class="flex flex-wrap gap-3 items-center">
+          <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+            Ask
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25h13.5M16.5 8.25 15 6m1.5 2.25L15 10.5M21 15.75H7.5M7.5 15.75 9 18m-1.5-2.25L9 13.5" />
+            </svg>
+            <span id="memory-button-spinner" class="hidden w-3.5 h-3.5 relative">
+              <span class="absolute inset-0 rounded-full border border-white/30 border-t-transparent animate-spin"></span>
+            </span>
+          </button>
+          <button type="button" id="memory-clear" class="text-xs uppercase tracking-[0.3em] text-slate-400">Clear</button>
+        </div>
+      </form>
+      <div id="memory-indicator" class="htmx-indicator flex items-center gap-2 text-xs text-slate-400" style="display:none;">
+        <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="9" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="42"/>
+        </svg>
+        <span>Gemini is thinking…</span>
+      </div>
+      <div id="memory-response" class="rounded-2xl bg-slate-950/70 border border-white/10 p-4 text-sm text-slate-100 whitespace-pre-wrap">
+        {% with memory=memory_initial %}
+          {% include 'partials/memory_response.html' %}
+        {% endwith %}
+      </div>
     </section>
 
     <section id="notes-grid">
@@ -128,50 +141,181 @@
       resize();
     });
 
-    document.body.addEventListener('htmx:afterRequest', (event) => {
-      if (!event.detail.target || event.detail.target.id !== 'notes-grid') {
-        return;
-      }
-      const feedback = document.getElementById('note-feedback');
-      if (event.detail.failed) {
-        feedback.textContent = event.detail.xhr.responseText || 'Could not save note';
-        feedback.classList.remove('text-slate-500');
-        feedback.classList.add('text-rose-400');
-      } else {
-        feedback.textContent = 'Note stored.';
-        feedback.classList.remove('text-rose-400');
-        feedback.classList.add('text-slate-500');
-      }
+    const panelMap = {
+      new: {
+        button: document.getElementById('new-toggle'),
+        panel: document.getElementById('new-panel'),
+      },
+      recall: {
+        button: document.getElementById('recall-toggle'),
+        panel: document.getElementById('recall-panel'),
+      },
+    };
+
+    const setPanel = (name) => {
+      Object.entries(panelMap).forEach(([key, cfg]) => {
+        if (!cfg.button || !cfg.panel) {
+          return;
+        }
+        const active = key === name;
+        cfg.panel.classList.toggle('hidden', !active);
+        cfg.button.setAttribute('aria-expanded', String(active));
+        cfg.button.classList.toggle('button-active', active);
+      });
+    };
+
+    Object.entries(panelMap).forEach(([name, cfg]) => {
+      if (!cfg.button) return;
+      cfg.button.addEventListener('click', () => {
+        const alreadyActive = cfg.button.classList.contains('button-active');
+        setPanel(alreadyActive ? null : name);
+      });
     });
 
-    const memoryToggle = document.getElementById('memory-toggle');
-    const memoryPanel = document.getElementById('memory-panel');
     const memoryClear = document.getElementById('memory-clear');
     const memoryInput = document.getElementById('memory-input');
-
-    if (memoryToggle && memoryPanel) {
-      const label = memoryToggle.querySelector('.memory-toggle-label');
-      const openIcon = memoryToggle.querySelector('.memory-icon-open');
-      const closeIcon = memoryToggle.querySelector('.memory-icon-close');
-      memoryToggle.addEventListener('click', () => {
-        const isHidden = memoryPanel.classList.toggle('hidden');
-        memoryToggle.setAttribute('aria-expanded', String(!isHidden));
-        if (label) {
-          label.textContent = isHidden ? 'Open Memory' : 'Hide Memory';
-        }
-        if (openIcon && closeIcon) {
-          openIcon.classList.toggle('hidden', !isHidden);
-          closeIcon.classList.toggle('hidden', isHidden);
-        }
-      });
-    }
-
     if (memoryClear && memoryInput) {
       memoryClear.addEventListener('click', () => {
         memoryInput.value = '';
         memoryInput.focus();
       });
     }
+
+    document.addEventListener('click', (event) => {
+      const card = event.target.closest('.note-card');
+      if (!card) {
+        return;
+      }
+      if (event.target.closest('button')) {
+        return;
+      }
+      card.classList.toggle('note-card--open');
+    });
+
+    const syncSpin = document.getElementById('sync-spin');
+    const syncCheck = document.getElementById('sync-check');
+    const syncLabel = document.getElementById('sync-label');
+    let syncTimer = null;
+
+    const showSync = (state, message) => {
+      if (!syncSpin || !syncCheck || !syncLabel) return;
+      syncLabel.textContent = message;
+      if (state === 'spin') {
+        syncSpin.classList.remove('hidden');
+        syncCheck.classList.add('hidden');
+      } else if (state === 'check') {
+        syncSpin.classList.add('hidden');
+        syncCheck.classList.remove('hidden');
+      } else {
+        syncSpin.classList.add('hidden');
+        syncCheck.classList.add('hidden');
+      }
+    };
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+      }
+      showSync('spin', 'Syncing…');
+      if (event.detail.failed) {
+        showSync('idle', 'Sync issue');
+        return;
+      }
+      syncTimer = setTimeout(() => {
+        showSync('check', 'Synced');
+        syncTimer = setTimeout(() => showSync('idle', 'Idle'), 1200);
+      }, 300);
+    });
+
+    const settingsToggle = document.getElementById('settings-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+    const settingsWrapper = document.getElementById('settings-wrapper');
+
+    const closeSettings = () => {
+      settingsPanel?.classList.add('hidden');
+      settingsToggle?.setAttribute('aria-expanded', 'false');
+    };
+
+    settingsToggle?.addEventListener('click', () => {
+      if (!settingsPanel) return;
+      const hidden = settingsPanel.classList.contains('hidden');
+      if (hidden) {
+        settingsPanel.classList.remove('hidden');
+        settingsToggle.setAttribute('aria-expanded', 'true');
+      } else {
+        closeSettings();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!settingsWrapper) return;
+      if (!settingsWrapper.contains(event.target)) {
+        closeSettings();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeSettings();
+      }
+    });
+
+    const memoryButtonSpinner = document.getElementById('memory-button-spinner');
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+      if (!event.target || event.target.getAttribute('hx-target') !== '#memory-response') {
+        return;
+      }
+      memoryButtonSpinner?.classList.remove('hidden');
+    });
+
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+      if (!event.target || event.target.getAttribute('hx-target') !== '#memory-response') {
+        return;
+      }
+      memoryButtonSpinner?.classList.add('hidden');
+    });
   </script>
+
+  <style>
+    .button-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 0.5rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: rgba(226,232,240,0.95);
+      background-color: rgba(255,255,255,0.05);
+      transition: background-color 150ms ease;
+    }
+    .button-pill:hover {
+      background-color: rgba(255,255,255,0.12);
+    }
+    .button-large {
+      min-width: 10rem;
+      font-size: 1rem;
+      padding: 0.75rem 2.5rem;
+    }
+    .button-active {
+      background-color: rgba(255,255,255,0.2) !important;
+      color: #fff !important;
+    }
+    .note-card {
+      cursor: pointer;
+      transition: border-color 150ms ease, transform 150ms ease;
+      max-height: 13rem;
+      overflow: hidden;
+    }
+    .note-card:hover {
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+    }
+    .note-card--open {
+      max-height: none;
+    }
+  </style>
 </body>
 </html>

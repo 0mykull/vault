@@ -237,6 +237,8 @@ class MemoryEngine:
 
     def ensure_tags(self, note: Note) -> Note:
         tags = self._generate_tags(note)
+        title_tokens = self._title_tokens(note)
+        tags = title_tokens + [tag for tag in tags if tag not in title_tokens]
         serialized = _serialize_tags(tags)
         note.tags = serialized
         Note.update(tags=serialized).where(Note.id == note.id).execute()
@@ -323,6 +325,19 @@ class MemoryEngine:
             return ["note"]
         counts = Counter(tokens)
         return [word for word, _ in counts.most_common(5)]
+
+    def _title_tokens(self, note: Note) -> List[str]:
+        title = (note.title or "").strip().lower()
+        if not title:
+            return []
+        tokens = []
+        for raw in re.split(r"\W+", title):
+            cleaned = re.sub(r"[^a-z0-9]", "", raw)
+            if len(cleaned) < 3:
+                continue
+            if cleaned not in tokens:
+                tokens.append(cleaned)
+        return tokens[:5]
 
     def _extract_tags(self, text: str) -> List[str]:
         parts = re.split(r"[,\n]", text)
@@ -612,6 +627,12 @@ def delete_note(note_id: int):
     if not note:
         abort(404)
     note.delete_instance()
+    return _render_note_grid()
+
+
+@app.route("/notes/clear", methods=["POST"])
+def clear_notes():
+    Note.delete().execute()
     return _render_note_grid()
 
 

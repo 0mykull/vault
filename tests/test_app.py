@@ -17,7 +17,7 @@ class VaultAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Vault", html)
-        self.assertIn("Save to Vault", html)
+        self.assertIn("New", html)
 
     def test_create_note_via_api(self):
         payload = {
@@ -31,12 +31,14 @@ class VaultAppTestCase(unittest.TestCase):
         data = response.get_json()
         self.assertEqual(data["title"], payload["title"])
         self.assertTrue(data["pinned"])
+        self.assertIn("weeklies", data["tags"])
 
         response = self.client.get("/api/notes")
         notes_payload = response.get_json()
         self.assertEqual(notes_payload["count"], 1)
         self.assertEqual(notes_payload["notes"][0]["color"], "amber")
         self.assertTrue(notes_payload["notes"][0]["tags"])
+        self.assertIn("weeklies", notes_payload["notes"][0]["tags"])
 
     def test_htmx_validation_blocks_empty_notes(self):
         response = self.client.post("/notes", data={}, headers={"HX-Request": "true"})
@@ -61,6 +63,16 @@ class VaultAppTestCase(unittest.TestCase):
             headers={"HX-Request": "true"},
         )
         self.assertEqual(delete.status_code, 200)
+        self.assertEqual(self.client.get("/api/notes").get_json()["count"], 0)
+
+    def test_clear_notes_endpoint(self):
+        self.client.post("/api/notes", json={"title": "Keep", "content": "one"})
+        self.client.post("/api/notes", json={"title": "Clear", "content": "two"})
+        response = self.client.post(
+            "/notes/clear",
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.get("/api/notes").get_json()["count"], 0)
 
     def test_edit_flow_updates_note(self):
