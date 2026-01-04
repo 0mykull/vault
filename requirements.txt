@@ -9,3 +9,4 @@ peewee==3.14.10
 pycparser==2.21
 python-dotenv==0.17.1
 Werkzeug==2.0.1
+google-generativeai==0.8.2

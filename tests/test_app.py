@@ -1,9 +1,10 @@
 import os
 import unittest
+from unittest import mock
 
 os.environ["TESTING"] = "true"
 
-from app import Note, app  # noqa: E402
+from app import Note, app, memory_engine  # noqa: E402
 
 
 class VaultAppTestCase(unittest.TestCase):
@@ -35,6 +36,7 @@ class VaultAppTestCase(unittest.TestCase):
         notes_payload = response.get_json()
         self.assertEqual(notes_payload["count"], 1)
         self.assertEqual(notes_payload["notes"][0]["color"], "amber")
+        self.assertTrue(notes_payload["notes"][0]["tags"])
 
     def test_htmx_validation_blocks_empty_notes(self):
         response = self.client.post("/notes", data={}, headers={"HX-Request": "true"})
@@ -76,6 +78,54 @@ class VaultAppTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn("Scratch 2", html)
         self.assertIn("emerald", html)
+        self.assertIn("#scratch", html.lower())
+
+    def test_memory_query_returns_local_recall(self):
+        self.client.post(
+            "/api/notes",
+            json={"title": "Groceries", "content": "milk, eggs, sourdough"},
+        )
+
+        response = self.client.post(
+            "/memory/query",
+            data={"question": "What was on my grocery list?"},
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Memory", html)
+        self.assertIn("Groceries", html)
+
+    def test_memory_query_requires_question(self):
+        response = self.client.post(
+            "/memory/query",
+            data={"question": "   "},
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Ask a question", response.get_data(as_text=True))
+
+    def test_memory_query_handles_remote_failure_gracefully(self):
+        self.client.post(
+            "/api/notes",
+            json={"title": "Gym list", "content": "Creatine and protein"},
+        )
+        fake_model = object()
+        with mock.patch.object(memory_engine, "_ensure_model", return_value=fake_model), mock.patch.object(
+            memory_engine,
+            "_remote_select_notes",
+            side_effect=RuntimeError("models/gemini-1.5-flash is not found"),
+        ):
+            response = self.client.post(
+                "/memory/query",
+                data={"question": "what supplements do i need"},
+                headers={"HX-Request": "true"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Gemini couldn&#39;t find the configured model", html)
+        self.assertIn("Showing local recall", html)
 
 
 if __name__ == "__main__":

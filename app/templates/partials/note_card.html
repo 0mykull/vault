@@ -18,6 +18,13 @@
   <div class="mt-4 space-y-3">
     <h3 class="text-xl font-semibold text-white">{{ note.title or 'Untitled note' }}</h3>
     <p class="text-slate-200 leading-relaxed break-words">{{ (note.content or 'Add a thought...') | e | replace('\n', '<br>') | safe }}</p>
+    {% if note.tag_list %}
+    <div class="flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+      {% for tag in note.tag_list %}
+      <span class="rounded-full border border-white/10 px-3 py-1 bg-white/5 text-[0.65rem] lowercase">#{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 
   <div class="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-slate-400">

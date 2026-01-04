@@ -1,0 +1,29 @@
+{% set state = memory or {} %}
+<div class="space-y-3">
+  {% if state.status == 'error' %}
+  <p class="text-rose-300 text-sm font-medium">{{ state.message or 'Memory stumbled. Try again in a moment.' }}</p>
+  {% if state.answer %}
+  <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Recall snapshot</div>
+  <pre class="text-sm whitespace-pre-wrap text-slate-100 bg-white/5 rounded-2xl p-3 border border-white/5">{{ state.answer | e }}</pre>
+  {% endif %}
+  {% elif state.answer %}
+  <div class="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-slate-500">
+    <span>Memory</span>
+    <span>
+      {% if state.mode == 'gemini' %}
+        Gemini
+      {% else %}
+        Recall
+      {% endif %}
+    </span>
+  </div>
+  {% if state.message %}
+  <p class="text-xs text-slate-400">{{ state.message }}</p>
+  {% endif %}
+  <pre class="text-sm whitespace-pre-wrap leading-relaxed text-slate-100">{{ state.answer | e }}</pre>
+  {% else %}
+  <p class="text-slate-400 text-sm">
+    Memory is standing by. Tap the button, ask what you logged last week, or say “what was on my grocery list?” to jog your second brain.
+  </p>
+  {% endif %}
+</div>
