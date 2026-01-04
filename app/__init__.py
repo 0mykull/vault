@@ -38,7 +38,7 @@ app.config["JSON_SORT_KEYS"] = False
 logger = logging.getLogger(__name__)
 
 NOTE_COLORS = ["slate", "amber", "emerald", "rose", "sky", "violet"]
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash-lite")
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
 
 
 def _is_testing() -> bool:
@@ -189,29 +189,37 @@ class MemoryEngine:
         model = self._ensure_model()
         if model:
             try:
-                ids, reason = self._remote_select_notes(model, question, notes)
+                result = self._remote_answer_with_metadata(model, question, notes)
+                answer_text = result.get("answer", "").strip()
+                ids = result.get("ids", [])
+                reason = result.get("reason")
                 matched = self._notes_by_ids(notes, ids)
                 if not matched:
-                    matched = [note for _, note in self._local_tag_search(question, notes)]
+                    matched = [
+                        note for _, note in self._local_tag_search(question, notes)
+                    ]
                     if matched and not reason:
                         reason = "Gemini returned no matches, so Memory surfaced the closest tags locally."
+                if answer_text:
+                    payload = {"status": "ok", "answer": answer_text, "mode": "gemini"}
+                    if reason:
+                        payload["message"] = reason
+                    return payload
                 if matched:
-                    try:
-                        answer = self._remote_notes_answer(model, question, matched)
-                        payload = {"status": "ok", "answer": answer, "mode": "gemini"}
-                        if reason:
-                            payload["message"] = reason
-                        return payload
-                    except Exception as exc:  # pragma: no cover - prompt/LLM fail
-                        logger.exception("Gemini answer generation failed: %s", exc)
-                        return self._build_local_response(
-                            matched,
-                            error=self._friendly_error_message(exc),
-                        )
+                    payload = {
+                        "status": "ok",
+                        "answer": self._format_answer_from_notes(matched),
+                        "mode": "local",
+                    }
+                    if reason:
+                        payload.setdefault("message", reason)
+                    return payload
             except Exception as exc:  # pragma: no cover - defensive network handling
                 logger.exception("Gemini memory request failed: %s", exc)
                 matches = [note for _, note in self._local_tag_search(question, notes)]
-                return self._build_local_response(matches, error=self._friendly_error_message(exc))
+                return self._build_local_response(
+                    matches, error=self._friendly_error_message(exc)
+                )
 
         matches = [note for _, note in self._local_tag_search(question, notes)]
         response = self._build_local_response(matches)
@@ -242,7 +250,9 @@ class MemoryEngine:
                 if tags:
                     return tags
             except Exception as exc:  # pragma: no cover - defensive
-                logger.exception("Gemini tag generation failed for note %s: %s", note.id, exc)
+                logger.exception(
+                    "Gemini tag generation failed for note %s: %s", note.id, exc
+                )
         return self._fallback_tags(note)
 
     def _ensure_model(self):
@@ -261,26 +271,35 @@ class MemoryEngine:
     def _ordered_notes(self) -> List[Note]:
         return list(Note.select().order_by(Note.updated_at.desc()))
 
-    def _remote_select_notes(self, model, question: str, notes: Sequence[Note]):
-        tag_lines = self._tag_lines(notes)
+    def _remote_answer_with_metadata(self, model, question: str, notes: Sequence[Note]):
+        tag_lines = self._tag_lines(notes, include_preview=True)
         if not tag_lines:
-            return [], None
+            raise RuntimeError("Memory index is empty")
         instructions = (
-            "You are Memory, an assistant for a note-taking app. "
-            "Each entry shows a note id, title, and 1-5 one-word tags. "
-            "Given the user's question, choose up to five note ids whose tags match the intent. "
-            "Respond with compact JSON like {\"ids\":[12,3],\"reason\":\"why\"}."
+            "You are Memory, the built-in second brain for the Vault notes app. "
+            "Each entry below includes a note id, title, tags, and a preview excerpt pulled from the note body. "
+            "Identify the entries that directly answer the user's question and craft a concrete reply. If the preview lists items, echo the relevant ones back as bullets or short phrases. "
+            "Always cite note ids in brackets (e.g., [3]) when referencing details. Keep the tone concise, warm, and proactive. "
+            "If information looks incomplete, point that out and suggest capturing more detail. "
+            'Respond with JSON: {"ids":[numbers],"answer":"final reply","reason":"optional note"}. '
+            "When nothing matches, return an empty ids array and clearly explain why in the answer."
         )
         prompt = (
-            f"{instructions}\n\nEntries:\n{tag_lines}\n\n"
-            f"Question: {question}\nJSON:"
+            f"{instructions}\n\nEntries:\n{tag_lines}\n\nQuestion: {question}\nJSON:"
         )
         response = model.generate_content(prompt)
-        data = self._parse_model_json(response)
+        text = self._response_text(response)
+        try:
+            data = self._parse_model_json(text)
+        except RuntimeError:
+            ids = self._extract_ids_from_text(text)
+            if ids:
+                return {"ids": ids, "answer": text.strip()}
+            raise
         ids = [self._coerce_int(value) for value in data.get("ids", [])]
         ids = [value for value in ids if value is not None]
-        reason = data.get("reason") or data.get("explanation")
-        return ids, reason
+        data["ids"] = ids
+        return data
 
     def _remote_tags(self, model, note: Note) -> List[str]:
         title = note.title.strip() if note.title else "Untitled"
@@ -289,30 +308,10 @@ class MemoryEngine:
             "Generate 1-5 lowercase, single-word tags summarizing this note. "
             "Prefer nouns. Respond with comma-separated words only."
         )
-        prompt = (
-            f"{instructions}\nTitle: {title}\nBody: {body[:600]}\nTags:"
-        )
+        prompt = f"{instructions}\nTitle: {title}\nBody: {body[:600]}\nTags:"
         response = model.generate_content(prompt)
-        text = (getattr(response, "text", None) or "").strip()
+        text = self._response_text(response)
         return self._extract_tags(text)
-
-    def _remote_notes_answer(self, model, question: str, notes: Sequence[Note]) -> str:
-        limited = list(notes)[:5]
-        if not limited:
-            raise RuntimeError("No notes provided for answer")
-        note_blocks = "\n\n".join(self._format_note(note) for note in limited)
-        instructions = (
-            "You are Memory, an assistant inside a notes app. Use the provided notes to answer the user's question. "
-            "Cite note ids in brackets when helpful. If something is missing from the notes, say so. Be concise and warm."
-        )
-        prompt = (
-            f"{instructions}\n\nNotes:\n{note_blocks}\n\nQuestion: {question}\nAnswer as Memory:"
-        )
-        response = model.generate_content(prompt)
-        text = (getattr(response, "text", None) or "").strip()
-        if not text:
-            raise RuntimeError("Empty response from Gemini")
-        return text
 
     def _fallback_tags(self, note: Note) -> List[str]:
         tokens = [
@@ -342,7 +341,7 @@ class MemoryEngine:
         return tag
 
     def _parse_model_json(self, response) -> dict:
-        text = (getattr(response, "text", None) or "").strip()
+        text = (response or "").strip()
         if not text:
             raise RuntimeError("Empty response from Gemini")
         try:
@@ -353,7 +352,30 @@ class MemoryEngine:
                 return json.loads(match.group(0))
         raise RuntimeError("Could not parse Gemini response")
 
-    def _tag_lines(self, notes: Sequence[Note]) -> str:
+    def _response_text(self, response) -> str:
+        text = getattr(response, "text", None)
+        if text:
+            return text.strip()
+        candidates = getattr(response, "candidates", None)
+        if candidates:
+            for candidate in candidates:
+                parts = getattr(candidate, "content", None)
+                if not parts:
+                    continue
+                parts_list = getattr(parts, "parts", None) or []
+                for part in parts_list:
+                    part_text = getattr(part, "text", None)
+                    if part_text:
+                        return part_text.strip()
+        raise RuntimeError("Gemini returned no text")
+
+    def _extract_ids_from_text(self, text: str) -> List[int]:
+        ids = [int(match) for match in re.findall(r"\[(\d+)\]", text)]
+        if ids:
+            return ids
+        return [int(match) for match in re.findall(r"\b(\d{1,4})\b", text)]
+
+    def _tag_lines(self, notes: Sequence[Note], include_preview: bool = False) -> str:
         lines = []
         for note in notes:
             tags = note.tag_list
@@ -361,7 +383,15 @@ class MemoryEngine:
                 continue
             title = (note.title or "Untitled").strip() or "Untitled"
             short_title = title[:60]
-            lines.append(f"[{note.id}] {short_title} | tags: {', '.join(tags)}")
+            if include_preview:
+                preview = (note.content or "").strip().replace("\n", " ")
+                if len(preview) > 140:
+                    preview = f"{preview[:137].rstrip()}..."
+                lines.append(
+                    f"[{note.id}] {short_title} | tags: {', '.join(tags)} | preview: {preview or '(empty)'}"
+                )
+            else:
+                lines.append(f"[{note.id}] {short_title} | tags: {', '.join(tags)}")
         return "\n".join(lines)
 
     def _coerce_int(self, value):
@@ -430,7 +460,9 @@ class MemoryEngine:
             lines.append(f"- [{note.id}] {title}{tags_display} — {preview}")
         return "Here's what surfaced:\n" + "\n".join(lines)
 
-    def _build_local_response(self, notes: Sequence[Note], error: str | None = None) -> dict:
+    def _build_local_response(
+        self, notes: Sequence[Note], error: str | None = None
+    ) -> dict:
         answer = self._format_answer_from_notes(notes)
         payload = {"status": "ok", "answer": answer, "mode": "local"}
         if error:

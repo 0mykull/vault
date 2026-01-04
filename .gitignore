@@ -5,5 +5,4 @@ __pycache__
 python3-virtualenv
 flask.sqlite
 .DS_Store
-vault.db
-todo.md
+/DEV_NOTES

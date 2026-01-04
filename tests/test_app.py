@@ -113,7 +113,7 @@ class VaultAppTestCase(unittest.TestCase):
         fake_model = object()
         with mock.patch.object(memory_engine, "_ensure_model", return_value=fake_model), mock.patch.object(
             memory_engine,
-            "_remote_select_notes",
+            "_remote_answer_with_metadata",
             side_effect=RuntimeError("models/gemini-1.5-flash is not found"),
         ):
             response = self.client.post(
